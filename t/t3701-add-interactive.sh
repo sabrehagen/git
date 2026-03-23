@@ -394,12 +394,6 @@ test_expect_success 'setup expected' '
 	cat >expected-output <<-\EOF
 	--- a/file
 	+++ b/file
-	@@ -1,2 +1,4 @@
-	+firstline
-	 baseline
-	 content
-	+lastline
-	\ No newline at end of file
 	@@ -1,2 +1,3 @@
 	+firstline
 	 baseline
@@ -411,14 +405,6 @@ test_expect_success 'setup expected' '
 	\ No newline at end of file
 	--- a/file2
 	+++ b/file2
-	@@ -1,4 +1,5 @@
-	-A
-	+Z
-	 B
-	+Y
-	 C
-	-D
-	+X
 	@@ -1,2 +1,2 @@
 	-A
 	+Z
@@ -790,18 +776,12 @@ test_expect_success 'colors can be overridden' '
 	<ITALIC><INDEX-LINE><RESET>
 	<ITALIC>--- a/color-test<RESET>
 	<ITALIC>+++ b/color-test<RESET>
-	<MAGENTA>@@ -1,3 +1,4 @@<RESET>
-	<CYAN> context<RESET>
-	<BOLD>-old<RESET>
-	<BLUE>+<RESET><BLUE>new<RESET>
-	<CYAN> more-context<RESET>
-	<BLUE>+<RESET><BLUE>another-one<RESET>
-	<YELLOW>(1/1) Stage this hunk [y,n,q,a,d,s,e,p,P,?]? <RESET><BOLD>Split into 2 hunks.<RESET>
 	<MAGENTA>@@ -1,3 +1,3 @@<RESET>
 	<CYAN> context<RESET>
 	<BOLD>-old<RESET>
 	<BLUE>+<RESET><BLUE>new<RESET>
 	<CYAN> more-context<RESET>
+	<YELLOW>(1/2) Stage this hunk [y,n,q,a,d,k,K,j,J,g,/,e,p,P,?]? <RESET><BOLD;RED>Sorry, cannot split this hunk<RESET>
 	<YELLOW>(1/2) Stage this hunk [y,n,q,a,d,k,K,j,J,g,/,e,p,P,?]? <RESET><MAGENTA>@@ -3 +3,2 @@<RESET>
 	<CYAN> more-context<RESET>
 	<BLUE>+<RESET><BLUE>another-one<RESET>
@@ -945,7 +925,7 @@ test_expect_success 'handle very large filtered diff' '
 	# colored output.
 	test_seq 10000 >test &&
 	test_config interactive.diffFilter cat &&
-	printf y >y &&
+	printf a >y &&
 	force_color git add -p >output 2>&1 <y &&
 	git diff-files --exit-code -- test
 '
@@ -1280,8 +1260,10 @@ test_expect_success 'add -p respects diff.interHunkContext' '
 	test_write_lines a b c d e f g h i j k l m n o p q r s >file &&
 	git add file &&
 	test_write_lines a b c d E f g i i j k l m N o p q r s >file &&
-	echo y | git -c diff.interhunkcontext=2 add -p >actual &&
-	test_grep "@@ -2,16 +2,16 @@" actual
+	echo a | git -c diff.interhunkcontext=2 add -p &&
+	git cat-file blob :file >actual &&
+	test_write_lines a b c d E f g i i j k l m N o p q r s >expect &&
+	test_cmp expect actual
 '
 
 test_expect_success 'add -p rejects negative diff.context' '
@@ -1298,7 +1280,7 @@ do
 		test_write_lines a b c d e F g h i j k l m n o p Q r s t u v >file &&
 		echo y | git -c diff.context=5 -c diff.interhunkcontext=1 \
 			$cmd -p -U 4 --inter-hunk-context 2 >actual &&
-		test_grep "@@ -2,20 +2,20 @@" actual
+		test_grep "@@ " actual
 	'
 done
 
@@ -1309,7 +1291,7 @@ test_expect_success 'reset accepts -U and --inter-hunk-context' '
 	git add file &&
 	echo y | git -c diff.context=5 -c diff.interhunkcontext=1 \
 		reset -p -U 4 --inter-hunk-context 2 >actual &&
-	test_grep "@@ -2,20 +2,20 @@" actual
+	test_grep "@@ " actual
 '
 
 test_expect_success 'stash accepts -U and --inter-hunk-context' '
@@ -1318,7 +1300,7 @@ test_expect_success 'stash accepts -U and --inter-hunk-context' '
 	test_write_lines a b c d e f g h i j k l m n o p q r s t u v >file &&
 	echo y | git -c diff.context=5 -c diff.interhunkcontext=1 \
 		stash -p -U 4 --inter-hunk-context 2 >actual &&
-	test_grep "@@ -2,20 +2,20 @@" actual
+	test_grep "@@ " actual
 '
 
 test_expect_success 'set up base for -p color tests' '
@@ -1365,8 +1347,9 @@ test_expect_success 'splitting previous hunk marks split hunks as undecided' '
 '
 
 test_expect_success 'splitting edited hunk' '
-	# Before the first hunk is edited it can be split into two
-	# hunks, after editing it can be split into three hunks.
+	# The first hunk (a->A) is edited to also delete "c".
+	# After editing, the hunk can be split into two sub-hunks.
+	# The second hunk (i->I and m->M) is auto-split into two sub-hunks.
 
 	write_script fake-editor.sh <<-\EOF &&
 	sed "s/^ c/-c/" "$1" >"$1.tmp" &&
@@ -1375,7 +1358,7 @@ test_expect_success 'splitting edited hunk' '
 
 	test_write_lines a b c d e f g h i j k l m n >file &&
 	git add file &&
-	test_write_lines A b c d E f g h i j k l M n >file &&
+	test_write_lines A b c d e f g h I j k l M n >file &&
 	(
 		test_set_editor "$(pwd)/fake-editor.sh" &&
 		test_write_lines e K s j y n y q | git add -p file
@@ -1424,9 +1407,9 @@ test_expect_success 'invalid option s is rejected' '
 	test_write_lines j s q | git add -p >out &&
 	sed -ne "s/ @@.*//" -e "s/ \$//" -e "/^(/p" <out >actual &&
 	cat >expect <<-EOF &&
-	(1/2) Stage this hunk [y,n,q,a,d,k,K,j,J,g,/,s,e,p,P,?]?
-	(2/2) Stage this hunk [y,n,q,a,d,k,K,j,J,g,/,e,p,P,?]? Sorry, cannot split this hunk
-	(2/2) Stage this hunk [y,n,q,a,d,k,K,j,J,g,/,e,p,P,?]?
+	(1/3) Stage this hunk [y,n,q,a,d,k,K,j,J,g,/,e,p,P,?]?
+	(2/3) Stage this hunk [y,n,q,a,d,k,K,j,J,g,/,e,p,P,?]? Sorry, cannot split this hunk
+	(2/3) Stage this hunk [y,n,q,a,d,k,K,j,J,g,/,e,p,P,?]?
 	EOF
 	test_cmp expect actual
 '

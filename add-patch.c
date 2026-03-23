@@ -1516,6 +1516,15 @@ static size_t patch_update_file(struct add_p_state *s, size_t idx)
 		hunk = file_diff->hunk_nr
 				? file_diff->hunk + hunk_index
 				: &file_diff->head;
+
+		/* Auto-split: always present the smallest possible hunks */
+		if (file_diff->hunk_nr && hunk->splittable_into > 1 &&
+		    hunk->use == UNDECIDED_HUNK) {
+			split_hunk(s, file_diff, hunk_index);
+			rendered_hunk_index = -1;
+			continue;
+		}
+
 		undecided_previous = -1;
 		undecided_next = -1;
 
