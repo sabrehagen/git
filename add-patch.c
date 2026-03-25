@@ -32,7 +32,8 @@ struct patch_mode {
 	 * trailing `NULL`.
 	 */
 	const char *diff_cmd[4], *apply_args[4], *apply_check_args[4];
-	unsigned is_reverse:1, index_only:1, apply_for_checkout:1;
+	unsigned is_reverse:1, index_only:1, apply_for_checkout:1,
+		supports_discard:1;
 	const char *prompt_mode[PROMPT_MODE_MAX];
 	const char *edit_hunk_hint, *help_patch_text;
 };
@@ -41,11 +42,12 @@ static struct patch_mode patch_mode_add = {
 	.diff_cmd = { "diff-files", NULL },
 	.apply_args = { "--cached", NULL },
 	.apply_check_args = { "--cached", NULL },
+	.supports_discard = 1,
 	.prompt_mode = {
-		N_("Stage mode change%s [y,n,q,a,d%s,?]? "),
-		N_("Stage deletion%s [y,n,q,a,d%s,?]? "),
-		N_("Stage addition%s [y,n,q,a,d%s,?]? "),
-		N_("Stage this hunk%s [y,n,q,a,d%s,?]? ")
+		N_("Stage mode change%s [y,n,q,a,d,N%s,?]? "),
+		N_("Stage deletion%s [y,n,q,a,d,N%s,?]? "),
+		N_("Stage addition%s [y,n,q,a,d,N%s,?]? "),
+		N_("Stage this hunk%s [y,n,q,a,d,N%s,?]? ")
 	},
 	.edit_hunk_hint = N_("If the patch applies cleanly, the edited hunk "
 			     "will immediately be marked for staging."),
@@ -55,7 +57,8 @@ static struct patch_mode patch_mode_add = {
 		   "q - quit; do not stage this hunk or any of the remaining "
 			"ones\n"
 		   "a - stage this hunk and all later hunks in the file\n"
-		   "d - do not stage this hunk or any of the later hunks in "
+		   "d - discard this hunk from the worktree\n"
+		   "N - do not stage this hunk or any of the later hunks in "
 			"the file\n")
 };
 
@@ -64,10 +67,10 @@ static struct patch_mode patch_mode_stash = {
 	.apply_args = { "--cached", NULL },
 	.apply_check_args = { "--cached", NULL },
 	.prompt_mode = {
-		N_("Stash mode change%s [y,n,q,a,d%s,?]? "),
-		N_("Stash deletion%s [y,n,q,a,d%s,?]? "),
-		N_("Stash addition%s [y,n,q,a,d%s,?]? "),
-		N_("Stash this hunk%s [y,n,q,a,d%s,?]? "),
+		N_("Stash mode change%s [y,n,q,a,N%s,?]? "),
+		N_("Stash deletion%s [y,n,q,a,N%s,?]? "),
+		N_("Stash addition%s [y,n,q,a,N%s,?]? "),
+		N_("Stash this hunk%s [y,n,q,a,N%s,?]? "),
 	},
 	.edit_hunk_hint = N_("If the patch applies cleanly, the edited hunk "
 			     "will immediately be marked for stashing."),
@@ -77,7 +80,7 @@ static struct patch_mode patch_mode_stash = {
 		   "q - quit; do not stash this hunk or any of the remaining "
 			"ones\n"
 		   "a - stash this hunk and all later hunks in the file\n"
-		   "d - do not stash this hunk or any of the later hunks in "
+		   "N - do not stash this hunk or any of the later hunks in "
 			"the file\n"),
 };
 
@@ -88,10 +91,10 @@ static struct patch_mode patch_mode_reset_head = {
 	.is_reverse = 1,
 	.index_only = 1,
 	.prompt_mode = {
-		N_("Unstage mode change%s [y,n,q,a,d%s,?]? "),
-		N_("Unstage deletion%s [y,n,q,a,d%s,?]? "),
-		N_("Unstage addition%s [y,n,q,a,d%s,?]? "),
-		N_("Unstage this hunk%s [y,n,q,a,d%s,?]? "),
+		N_("Unstage mode change%s [y,n,q,a,N%s,?]? "),
+		N_("Unstage deletion%s [y,n,q,a,N%s,?]? "),
+		N_("Unstage addition%s [y,n,q,a,N%s,?]? "),
+		N_("Unstage this hunk%s [y,n,q,a,N%s,?]? "),
 	},
 	.edit_hunk_hint = N_("If the patch applies cleanly, the edited hunk "
 			     "will immediately be marked for unstaging."),
@@ -101,7 +104,7 @@ static struct patch_mode patch_mode_reset_head = {
 		   "q - quit; do not unstage this hunk or any of the remaining "
 			"ones\n"
 		   "a - unstage this hunk and all later hunks in the file\n"
-		   "d - do not unstage this hunk or any of the later hunks in "
+		   "N - do not unstage this hunk or any of the later hunks in "
 			"the file\n"),
 };
 
@@ -111,10 +114,10 @@ static struct patch_mode patch_mode_reset_nothead = {
 	.apply_check_args = { "--cached", NULL },
 	.index_only = 1,
 	.prompt_mode = {
-		N_("Apply mode change to index%s [y,n,q,a,d%s,?]? "),
-		N_("Apply deletion to index%s [y,n,q,a,d%s,?]? "),
-		N_("Apply addition to index%s [y,n,q,a,d%s,?]? "),
-		N_("Apply this hunk to index%s [y,n,q,a,d%s,?]? "),
+		N_("Apply mode change to index%s [y,n,q,a,N%s,?]? "),
+		N_("Apply deletion to index%s [y,n,q,a,N%s,?]? "),
+		N_("Apply addition to index%s [y,n,q,a,N%s,?]? "),
+		N_("Apply this hunk to index%s [y,n,q,a,N%s,?]? "),
 	},
 	.edit_hunk_hint = N_("If the patch applies cleanly, the edited hunk "
 			     "will immediately be marked for applying."),
@@ -124,7 +127,7 @@ static struct patch_mode patch_mode_reset_nothead = {
 		   "q - quit; do not apply this hunk or any of the remaining "
 			"ones\n"
 		   "a - apply this hunk and all later hunks in the file\n"
-		   "d - do not apply this hunk or any of the later hunks in "
+		   "N - do not apply this hunk or any of the later hunks in "
 			"the file\n"),
 };
 
@@ -134,10 +137,10 @@ static struct patch_mode patch_mode_checkout_index = {
 	.apply_check_args = { "-R", NULL },
 	.is_reverse = 1,
 	.prompt_mode = {
-		N_("Discard mode change from worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Discard deletion from worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Discard addition from worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Discard this hunk from worktree%s [y,n,q,a,d%s,?]? "),
+		N_("Discard mode change from worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Discard deletion from worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Discard addition from worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Discard this hunk from worktree%s [y,n,q,a,N%s,?]? "),
 	},
 	.edit_hunk_hint = N_("If the patch applies cleanly, the edited hunk "
 			     "will immediately be marked for discarding."),
@@ -147,7 +150,7 @@ static struct patch_mode patch_mode_checkout_index = {
 		   "q - quit; do not discard this hunk or any of the remaining "
 			"ones\n"
 		   "a - discard this hunk and all later hunks in the file\n"
-		   "d - do not discard this hunk or any of the later hunks in "
+		   "N - do not discard this hunk or any of the later hunks in "
 			"the file\n"),
 };
 
@@ -157,10 +160,10 @@ static struct patch_mode patch_mode_checkout_head = {
 	.apply_check_args = { "-R", NULL },
 	.is_reverse = 1,
 	.prompt_mode = {
-		N_("Discard mode change from index and worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Discard deletion from index and worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Discard addition from index and worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Discard this hunk from index and worktree%s [y,n,q,a,d%s,?]? "),
+		N_("Discard mode change from index and worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Discard deletion from index and worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Discard addition from index and worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Discard this hunk from index and worktree%s [y,n,q,a,N%s,?]? "),
 	},
 	.edit_hunk_hint = N_("If the patch applies cleanly, the edited hunk "
 			     "will immediately be marked for discarding."),
@@ -170,7 +173,7 @@ static struct patch_mode patch_mode_checkout_head = {
 		   "q - quit; do not discard this hunk or any of the remaining "
 			"ones\n"
 		   "a - discard this hunk and all later hunks in the file\n"
-		   "d - do not discard this hunk or any of the later hunks in "
+		   "N - do not discard this hunk or any of the later hunks in "
 			"the file\n"),
 };
 
@@ -179,10 +182,10 @@ static struct patch_mode patch_mode_checkout_nothead = {
 	.apply_for_checkout = 1,
 	.apply_check_args = { NULL },
 	.prompt_mode = {
-		N_("Apply mode change to index and worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Apply deletion to index and worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Apply addition to index and worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Apply this hunk to index and worktree%s [y,n,q,a,d%s,?]? "),
+		N_("Apply mode change to index and worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Apply deletion to index and worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Apply addition to index and worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Apply this hunk to index and worktree%s [y,n,q,a,N%s,?]? "),
 	},
 	.edit_hunk_hint = N_("If the patch applies cleanly, the edited hunk "
 			     "will immediately be marked for applying."),
@@ -192,7 +195,7 @@ static struct patch_mode patch_mode_checkout_nothead = {
 		   "q - quit; do not apply this hunk or any of the remaining "
 			"ones\n"
 		   "a - apply this hunk and all later hunks in the file\n"
-		   "d - do not apply this hunk or any of the later hunks in "
+		   "N - do not apply this hunk or any of the later hunks in "
 			"the file\n"),
 };
 
@@ -202,10 +205,10 @@ static struct patch_mode patch_mode_worktree_head = {
 	.apply_check_args = { "-R", NULL },
 	.is_reverse = 1,
 	.prompt_mode = {
-		N_("Discard mode change from worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Discard deletion from worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Discard addition from worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Discard this hunk from worktree%s [y,n,q,a,d%s,?]? "),
+		N_("Discard mode change from worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Discard deletion from worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Discard addition from worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Discard this hunk from worktree%s [y,n,q,a,N%s,?]? "),
 	},
 	.edit_hunk_hint = N_("If the patch applies cleanly, the edited hunk "
 			     "will immediately be marked for discarding."),
@@ -215,7 +218,7 @@ static struct patch_mode patch_mode_worktree_head = {
 		   "q - quit; do not discard this hunk or any of the remaining "
 			"ones\n"
 		   "a - discard this hunk and all later hunks in the file\n"
-		   "d - do not discard this hunk or any of the later hunks in "
+		   "N - do not discard this hunk or any of the later hunks in "
 			"the file\n"),
 };
 
@@ -224,10 +227,10 @@ static struct patch_mode patch_mode_worktree_nothead = {
 	.apply_args = { NULL },
 	.apply_check_args = { NULL },
 	.prompt_mode = {
-		N_("Apply mode change to worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Apply deletion to worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Apply addition to worktree%s [y,n,q,a,d%s,?]? "),
-		N_("Apply this hunk to worktree%s [y,n,q,a,d%s,?]? "),
+		N_("Apply mode change to worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Apply deletion to worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Apply addition to worktree%s [y,n,q,a,N%s,?]? "),
+		N_("Apply this hunk to worktree%s [y,n,q,a,N%s,?]? "),
 	},
 	.edit_hunk_hint = N_("If the patch applies cleanly, the edited hunk "
 			     "will immediately be marked for applying."),
@@ -237,7 +240,7 @@ static struct patch_mode patch_mode_worktree_nothead = {
 		   "q - quit; do not apply this hunk or any of the remaining "
 			"ones\n"
 		   "a - apply this hunk and all later hunks in the file\n"
-		   "d - do not apply this hunk or any of the later hunks in "
+		   "N - do not apply this hunk or any of the later hunks in "
 			"the file\n"),
 };
 
@@ -1423,6 +1426,34 @@ N_("j - go to the next undecided hunk, roll over at the bottom\n"
    "? - print help\n"
    "HUNKS SUMMARY - Hunks: %d, USE: %d, SKIP: %d\n");
 
+static int discard_hunk_from_worktree(struct add_p_state *s,
+				      struct file_diff *file_diff,
+				      struct hunk *hunk)
+{
+	struct child_process cp = CHILD_PROCESS_INIT;
+	struct strbuf buf = STRBUF_INIT;
+	int result;
+
+	render_diff_header(s, file_diff, 0, &buf);
+	render_hunk(s, hunk, 0, 0, &buf);
+
+	setup_child_process(s, &cp, "apply", "-R", NULL);
+	result = pipe_command(&cp, buf.buf, buf.len, NULL, 0, NULL, 0);
+	if (result)
+		error(_("'git apply -R' failed"));
+
+	strbuf_release(&buf);
+
+	if (!result) {
+		discard_index(s->s.r->index);
+		if (repo_read_index(s->s.r) >= 0)
+			repo_refresh_and_write_index(s->s.r, REFRESH_QUIET, 0,
+						     1, NULL, NULL, NULL);
+	}
+
+	return result;
+}
+
 static void apply_patch(struct add_p_state *s, struct file_diff *file_diff)
 {
 	struct child_process cp = CHILD_PROCESS_INIT;
@@ -1657,6 +1688,18 @@ static size_t patch_update_file(struct add_p_state *s, size_t idx)
 soft_increment:
 			hunk_index = undecided_next < 0 ?
 				file_diff->hunk_nr : undecided_next;
+		} else if (s->answer.buf[0] == 'N') {
+			if (file_diff->hunk_nr) {
+				for (; hunk_index < file_diff->hunk_nr; hunk_index++) {
+					hunk = file_diff->hunk + hunk_index;
+					if (hunk->use == UNDECIDED_HUNK)
+						hunk->use = SKIP_HUNK;
+				}
+				if (!get_first_undecided(file_diff, &hunk_index))
+					hunk_index = 0;
+			} else if (hunk->use == UNDECIDED_HUNK) {
+				hunk->use = SKIP_HUNK;
+			}
 		} else if (ch == 'n') {
 			hunk->use = SKIP_HUNK;
 			goto soft_increment;
@@ -1673,16 +1716,15 @@ soft_increment:
 				hunk->use = USE_HUNK;
 			}
 		} else if (ch == 'd') {
-			if (file_diff->hunk_nr) {
-				for (; hunk_index < file_diff->hunk_nr; hunk_index++) {
-					hunk = file_diff->hunk + hunk_index;
-					if (hunk->use == UNDECIDED_HUNK)
-						hunk->use = SKIP_HUNK;
+			if (s->mode->supports_discard) {
+				if (!discard_hunk_from_worktree(s, file_diff,
+								hunk)) {
+					hunk->use = SKIP_HUNK;
+					goto soft_increment;
 				}
-				if (!get_first_undecided(file_diff, &hunk_index))
-					hunk_index = 0;
-			} else if (hunk->use == UNDECIDED_HUNK) {
-				hunk->use = SKIP_HUNK;
+			} else {
+				err(s, _("Unknown command '%s' (use '?' for help)"),
+				    s->answer.buf);
 			}
 		} else if (ch == 'q') {
 			patch_update_resp = s->file_diff_nr;
